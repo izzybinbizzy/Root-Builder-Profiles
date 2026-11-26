@@ -393,14 +393,26 @@ put(ow / "Root" / "enbcache" / "w.sc", "w")
 shots = []
 core_m.QTimer = types.SimpleNamespace(singleShot=lambda ms, fn: shots.append(ms))
 p._run_profile = None
+plog = pdata / "RootBuilderProfiles" / "Root Builder Profiles log.txt"
+n_log = len(plog.read_text(encoding="utf-8").splitlines()) if plog.exists() else 0
 p._guard(p._after_run)
-check(not shots and (ow / "Root" / "enbcache" / "w.sc").exists(), "a build still deployed after the run: nothing moved, no re-check scheduled")
+new_log = plog.read_text(encoding="utf-8").splitlines()[n_log:] if plog.exists() else []
+check(not shots and (ow / "Root" / "enbcache" / "w.sc").exists() and any("still has files deployed" in l for l in new_log),
+      "a build still deployed after the run: nothing moved, no re-check scheduled, the reason logged")
 core_m.QTimer = types.SimpleNamespace(singleShot=lambda ms, fn: fn())
 (rbd / "BuildData.json").unlink()
 (ow / "Root" / "enbcache" / "w.sc").unlink()
 # no personal word in any text the add-on shows or ships (topics\pages.md pg.2)
 import re
-texts = [(SRC / "rootbuilderprofiles" / "__init__.py").read_text(encoding="utf-8"), (SRC / "README.md").read_text(encoding="utf-8")]
-check(not any(re.search(r"\b(you|your|yours)\b", t, re.I) for t in texts), "no 'you' / 'your' in the dialogs, settings or README")
+import io, tokenize
+prose_kinds = {tokenize.STRING, tokenize.COMMENT, getattr(tokenize, "FSTRING_MIDDLE", tokenize.STRING)}
+texts = []
+for n in ("__init__.py", "core.py"):   # the words only: strings, docstrings and comments, never a variable named i
+    src_text = (SRC / "rootbuilderprofiles" / n).read_text(encoding="utf-8")
+    texts += [t.string for t in tokenize.generate_tokens(io.StringIO(src_text).readline) if t.type in prose_kinds]
+texts.append((SRC / "README.md").read_text(encoding="utf-8"))
+personal = r"\b(i|me|my|we|us|our|ours|you|your|yours)\b"
+hits = [m.group(0) for t in texts for m in re.finditer(personal, t, re.I)]
+check(not hits, f"no personal word in the dialogs, log lines, docstrings or README {hits[:5]}")
 print("\nRESULT:", "ALL PASS" if not fails else f"{len(fails)} FAILED: {fails}")
 sys.exit(1 if fails else 0)

@@ -26,7 +26,8 @@ Why: preset authors say to remove an old preset completely before installing a n
 preset and the shared `overwrite\Root` can keep one preset's files in every profile.
 
 ## Requires
-Mod Organizer 2 2.5 and Root Builder (copy mode, autobuild on). Windows.
+Mod Organizer 2 2.5 and Root Builder 5.1.1 (copy mode, autobuild on - its autobuild clears inside its own run-finished
+step, so the add-on checks once after a program closes). Windows.
 
 ## Install
 Through MO2's Plugin Finder, or copy the `rootbuilderprofiles` folder into `MO2\plugins`. Its log and state live in
