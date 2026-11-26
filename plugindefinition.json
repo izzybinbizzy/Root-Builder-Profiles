@@ -1,0 +1,29 @@
+{
+  "Name": "Root Builder Profiles",
+  "Author": "izzydoingit",
+  "Description": "An add-on for Root Builder: game-folder changes kept per profile (each profile's new Root files go into its own Root Changes mod), and a game folder kept clean of ENB / ReShade presets no mod owns.",
+  "DocsUrl": "https://github.com/izzybinbizzy/Root-Builder-Profiles",
+  "GithubUrl": "https://github.com/izzybinbizzy/Root-Builder-Profiles",
+  "NexusUrl": "",
+  "Versions": [
+    {
+      "Version": "1.3.1",
+      "Released": "2026-11-26",
+      "MinSupport": "2.5.0",
+      "MaxSupport": "2.5.2",
+      "MinWorking": "2.5.0",
+      "MaxWorking": "",
+      "DownloadUrl": "https://github.com/izzybinbizzy/Root-Builder-Profiles/archive/refs/tags/v1.3.1.zip",
+      "PluginPath": [
+        "Root-Builder-Profiles-1.3.1/rootbuilderprofiles/"
+      ],
+      "LocalePath": [],
+      "DataPath": [
+        "data/RootBuilderProfiles/"
+      ],
+      "ReleaseNotes": [
+        "First public release."
+      ]
+    }
+  ]
+}

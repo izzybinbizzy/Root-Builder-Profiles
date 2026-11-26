@@ -1,0 +1,42 @@
+# Test: every push to main and every pull request runs the offline test on Windows (the add-on's file work uses the Windows
+# Recycle Bin, and the test checks that removed files really land there). Docs-only changes skip it.
+name: Test
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["**/*.md"]
+  pull_request:
+    paths-ignore: ["**/*.md"]
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  offline-test:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Offline test
+        shell: pwsh
+        run: |
+          $out = python "offline test.py" 2>&1 | Out-String
+          $out
+          if ($LASTEXITCODE -ne 0 -or $out -notmatch 'RESULT: ALL PASS') { throw "the offline test did not pass" }
+      - name: The Plugin Finder manifest names this version
+        shell: pwsh
+        run: |
+          $m = Get-Content plugindefinition.json -Raw | ConvertFrom-Json
+          $init = Get-Content rootbuilderprofiles/__init__.py -Raw
+          if ($init -notmatch 'VersionInfo\((\d+), (\d+), (\d+)\)') { throw "no VersionInfo in __init__.py" }
+          $v = "$($Matches[1]).$($Matches[2]).$($Matches[3])"
+          if (-not ($m.Versions | Where-Object { $_.Version -eq $v })) { throw "plugindefinition.json has no entry for $v" }
+          "### Root Builder Profiles $v: offline test passed, manifest lists it" >> $env:GITHUB_STEP_SUMMARY

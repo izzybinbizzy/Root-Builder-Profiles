@@ -1,0 +1,29 @@
+# CodeRabbit settings for this repository (https://docs.coderabbit.ai/reference/configuration)
+language: en-US
+reviews:
+  profile: assertive
+  high_level_summary: true
+  poem: false
+  request_changes_workflow: false
+  review_status: true
+  auto_review:
+    enabled: true
+    auto_pause_after_reviewed_commits: 0
+    drafts: false
+    base_branches:
+      - main
+  path_instructions:
+    - path: "rootbuilderprofiles/**"
+      instructions: >-
+        Mod Organizer 2 Python plugin (MO2 2.5, PyQt6 with a PyQt5 fallback) that runs after Kezyma's Root Builder clears.
+        It moves files between overwrite\Root, mods and the game folder. Check that nothing is deleted outright (the Recycle
+        Bin or a rename only), that every copy is proven equal before the original goes, that nothing runs while the game
+        runs or Root Builder has a build deployed, that Root Builder's own files are only renamed, and that a failure leaves
+        files where they were and is logged.
+    - path: "offline test.py"
+      instructions: >-
+        Offline test of the plugin against a made-up game folder and MO2 tree in the temp folder, with stand-ins for mobase
+        and PyQt. Check that every case is meaningful, that nothing outside the temp tree is touched, and that the run ends
+        with RESULT: ALL PASS only when every check passed.
+chat:
+  auto_reply: true
