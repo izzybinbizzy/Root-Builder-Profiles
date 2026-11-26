@@ -391,15 +391,19 @@ check((mods / "Root Changes - Profile Z" / "Root" / "enbcache" / "z.sc").exists(
 put(rbd / "BuildData.json", "{}")
 put(ow / "Root" / "enbcache" / "w.sc", "w")
 shots = []
-core_m.QTimer = types.SimpleNamespace(singleShot=lambda ms, fn: shots.append(ms))
-p._run_profile = None
-plog = pdata / "RootBuilderProfiles" / "Root Builder Profiles log.txt"
-n_log = len(plog.read_text(encoding="utf-8").splitlines()) if plog.exists() else 0
-p._guard(p._after_run)
-new_log = plog.read_text(encoding="utf-8").splitlines()[n_log:] if plog.exists() else []
+# the plugin imported the QTimer stand-in itself, so its singleShot is swapped on that same object, never the module name
+timer_shot = core_m.QTimer.singleShot
+core_m.QTimer.singleShot = lambda ms, fn: shots.append(ms)
+try:
+    p._run_profile = None
+    plog = pdata / "RootBuilderProfiles" / "Root Builder Profiles log.txt"
+    n_log = len(plog.read_text(encoding="utf-8").splitlines()) if plog.exists() else 0
+    p._guard(p._after_run)
+    new_log = plog.read_text(encoding="utf-8").splitlines()[n_log:] if plog.exists() else []
+finally:
+    core_m.QTimer.singleShot = timer_shot
 check(not shots and (ow / "Root" / "enbcache" / "w.sc").exists() and any("still has files deployed" in line for line in new_log),
       "a build still deployed after the run: nothing moved, no re-check scheduled, the reason logged")
-core_m.QTimer = types.SimpleNamespace(singleShot=lambda ms, fn: fn())
 (rbd / "BuildData.json").unlink()
 (ow / "Root" / "enbcache" / "w.sc").unlink()
 # no personal word in any text the add-on shows or ships (topics\pages.md pg.2)
