@@ -22,8 +22,6 @@ NAME = "RootBuilderProfiles"
 TITLE = "Root Builder Profiles"
 DECLINED_COPIES = "declined_copies"
 DECLINED_PRESETS = "declined"
-RETRY_MS = 5000
-RETRIES = 60   # Root Builder's Clear of a large Root deploy can take minutes
 
 
 class RootBuilderProfiles(mobase.IPluginTool):
@@ -31,7 +29,6 @@ class RootBuilderProfiles(mobase.IPluginTool):
         super().__init__()
         self._org = None
         self._core = None
-        self._retries = 0
         self._busy = False
         self._run_profile = None
 
@@ -131,7 +128,6 @@ class RootBuilderProfiles(mobase.IPluginTool):
             self._busy = False
 
     def _startup(self):
-        self._core.first_start()
         self._say(f"started on profile '{self._org.profileName()}'")
         self._check_game()
 
@@ -139,7 +135,6 @@ class RootBuilderProfiles(mobase.IPluginTool):
     def _on_finished_run(self):
         # the files Root Builder clears into overwrite\Root are this profile's, even if the profile is changed before they move
         self._run_profile = self._org.profileName()
-        self._retries = 0
         self._later(self._after_run)
 
     def _after_run(self):
@@ -147,18 +142,13 @@ class RootBuilderProfiles(mobase.IPluginTool):
             return
         profile = self._run_profile or self._org.profileName()
         if self._core.build_deployed():
-            # Root Builder has not cleared yet (or autobuild is off) - look again, then leave the files where they are.
-            if self._retries < RETRIES:
-                self._retries += 1
-                self._later(self._after_run, RETRY_MS)
-            else:
-                self._say(f"Root Builder still has files deployed after {RETRIES * RETRY_MS // 1000} s - nothing moved this time")
-                self._retries = 0
+            # Root Builder's autobuild clears inside its own run-finished callback, which has returned by now: a build still
+            # deployed means autobuild is off or the clear failed, so the files stay where they are
+            self._say("Root Builder still has files deployed after the program closed - nothing moved this time")
             return
-        self._retries = 0
         same = profile == self._org.profileName()
-        # 1.2.0: the ticked mods decide what is this profile's change (ENB leftovers never land in a non-ENB profile's mod); after
-        # a profile change only the copy rule applies, since the current profile's ticks are not the ones that ran
+        # the ticked mods decide what is this profile's change (ENB leftovers never land in a non-ENB profile's mod); after a
+        # profile change only the copy rule applies, since the current profile's ticks are not the ones that ran
         mod, moved, _created = self._core.move_changes(profile, self._ticked_mods() if same else None)
         if moved and same:
             self._refresh_and_tick(mod)
@@ -193,7 +183,7 @@ class RootBuilderProfiles(mobase.IPluginTool):
             return
         reason = self._core.busy_reason()
         if reason:
-            # 1.1.1: a live deploy or a running game leaves ticked mods' Root files in the game folder - never judged then
+            # a live deploy or a running game leaves ticked mods' Root files in the game folder - never judged then
             self._say(f"game folder check skipped: {reason}")
             return
         known, strays = self._core.scan_game(self._ticked_mods())
@@ -201,7 +191,7 @@ class RootBuilderProfiles(mobase.IPluginTool):
         if not files:
             return
         state = self._core.load_state() or {}
-        # 1.3.0: copies of a mod's own Root files (a deploy Root Builder could not clear - a killed game held them) are never
+        # copies of a mod's own Root files (a deploy Root Builder could not clear - a killed game held them) are never
         # offered as a preset: adopted, another mod's files would be ticked into this profile
         copies = self._core.copies_of_mod_roots(files)
         if copies:
@@ -210,7 +200,7 @@ class RootBuilderProfiles(mobase.IPluginTool):
             if state.get(DECLINED_COPIES) != ckey:
                 names = "\n".join(f"{rel}   (from '{copies[rel]}')" for rel in sorted(copies)[:10]) + ("\n..." if len(copies) > 10 else "")
                 answer = QMessageBox.question(None, TITLE, self.tr(
-                    "Your game folder holds {count} file(s) that are exact copies of files in a mod's Root folder - "
+                    "The game folder holds {count} file(s) that are exact copies of files in a mod's Root folder - "
                     "Root Builder could not clear them after a game was closed (it held them open):\n\n{names}\n\n"
                     "They are not a preset. Send these game folder copies to the Recycle Bin? The mods keep their own copies, "
                     "and Root Builder deploys them again only where those mods are ticked.").format(count=len(copies), names=names))
@@ -234,8 +224,8 @@ class RootBuilderProfiles(mobase.IPluginTool):
             return
         names = "\n".join(sorted(files)[:10]) + ("\n..." if len(files) > 10 else "")
         answer = QMessageBox.question(None, TITLE, self.tr(
-            "Your game folder holds {count} preset file(s) that no ticked mod puts there, so every profile uses them:\n\n{names}\n\n"
-            "Move them into a mod of their own? You name the mod next. Profiles that tick it keep the preset; the others stop "
+            "The game folder holds {count} preset file(s) that no ticked mod puts there, so every profile uses them:\n\n{names}\n\n"
+            "Move them into a mod of their own? The mod's name is asked next. Profiles that tick it keep the preset; the others stop "
             "seeing it. The game folder copies go to the Recycle Bin only after every copy is checked.").format(count=len(files), names=names))
         if answer != QMessageBox.StandardButton.Yes:
             state[DECLINED_PRESETS] = key

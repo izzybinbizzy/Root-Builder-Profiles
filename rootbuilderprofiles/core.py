@@ -6,11 +6,11 @@ add-on covers them without touching Root Builder's code:
 
 1. On Clear, a NEW file (shader cache, a preset edit to a file no mod owns, a log) goes into
    overwrite\\Root - one folder for every profile, deployed on every profile's next run. After the
-   Clear, we move those files into a mod named "Root Changes - <profile>", ticked only in that
+   Clear, this add-on moves those files into a mod named "Root Changes - <profile>", ticked only in that
    profile, so each profile keeps its own.
 2. Root Builder treats whatever sat in the game folder on its FIRST run as game files and keeps it
    there under every profile (a hand-placed ENB preset is the usual case - the "uninstall the old
-   preset completely" problem preset authors warn about). We find preset files that Root Builder
+   preset completely" problem preset authors warn about). The add-on finds preset files that Root Builder
    counts as game files, copy them into a Root mod, and send the game folder copies to the Recycle
    Bin once every copy is proven equal; Root Builder's game-file snapshot is set aside (renamed,
    never deleted) so it takes a fresh, clean one on its next build.
@@ -184,7 +184,7 @@ class Core:
         os.replace(tmp, self.state_file)
 
     def first_start(self):
-        """First time: what is in overwrite\\Root now stays where it is (we never take files the user put there)."""
+        """First time: what is in overwrite\\Root now stays where it is (files put there before are never taken)."""
         if self.load_state() is not None:
             return False
         legacy = {rel.lower(): [p.stat().st_size, p.stat().st_mtime] for rel, p in files_under(self.overwrite_root).items()}
@@ -223,8 +223,8 @@ class Core:
 
     # ---- 1: after a run, overwrite\Root -> the profile's own mod -----------------------------
     def leftover_reason(self, rel, path, ticked_mods, own_mod):
-        """Why a new overwrite\\Root file is NOT this profile's change, or None (1.2.0). `ticked_mods` None = unknown: only the
-        copy rule applies."""
+        """Why a new overwrite\\Root file is NOT this profile's change, or None. `ticked_mods` None = unknown: only the copy rule
+        applies."""
         low = rel.lower()
         for mod_dir in self.mods.iterdir() if self.mods.is_dir() else ():
             if mod_dir.name in (own_mod, LEFTOVERS):
@@ -368,7 +368,7 @@ class Core:
 
     def copies_of_mod_roots(self, files):
         """{rel: mod name} for the game-folder files that are byte copies of a file at the same place in ANY mod's Root
-        folder, ticked or not (1.3.0). Such a file is a deploy Root Builder could not clear - a game that was killed held it
+        folder, ticked or not. Such a file is a deploy Root Builder could not clear - a game that was killed held it
         open - never a preset placed by hand: adopted as a preset it would be ticked into a profile that never asked for that
         mod's files (another mod's DXVK d3d11.dll / dxgi.dll, for example, loaded on every start of that profile)."""
         out = {}
@@ -402,6 +402,14 @@ class Core:
         again = self.copies_of_mod_roots(files)
         if set(again) != set(files):
             raise RuntimeError("a file changed since it was checked - nothing was removed")
+        self._recycle_from_game(files, reset_snapshot, "leftovers")
+        self.say(f"leftovers: {len(files)} copy/copies of mods' Root files recycled from the game folder: "
+                 + ", ".join(sorted(files)[:6]))
+        return len(files)
+
+    def _recycle_from_game(self, files, reset_snapshot, label):
+        """Recycle the game-folder files, prove them gone, drop the folders they leave empty and - when Root Builder had
+        recorded them as game files - set its snapshot and backup aside so its next build records the clean folder."""
         if not recycle(files.values()):
             raise RuntimeError("the Recycle Bin refused the game folder files - check the game folder")
         left = [rel for rel, p in files.items() if p.exists()]
@@ -415,10 +423,7 @@ class Core:
             if src.exists():
                 dest = self.rb_dir / f"{Path(name).stem} before Root Builder Profiles {stamp}{Path(name).suffix}"
                 os.replace(src, dest)
-                self.say(f"leftovers: Root Builder's {name} set aside as '{dest.name}' (it makes a fresh one on its next build)")
-        self.say(f"leftovers: {len(files)} copy/copies of mods' Root files recycled from the game folder: "
-                 + ", ".join(sorted(files)[:6]))
-        return len(files)
+                self.say(f"{label}: Root Builder's {name} set aside as '{dest.name}' (it makes a fresh one on its next build)")
 
     def adopt(self, files, mod, reset_snapshot=True):
         """Copy `files` (rel -> game path) into mods\\<mod>\\Root, prove every copy equal, recycle the game copies,
@@ -428,7 +433,7 @@ class Core:
             raise RuntimeError("Root Builder has files deployed right now - close the game or program first")
         if self.running():
             raise RuntimeError("the game is running")
-        copies = self.copies_of_mod_roots(files)   # 1.3.0: a mod's own Root file left behind is never adopted as a preset
+        copies = self.copies_of_mod_roots(files)   # a mod's own Root file left behind is never adopted as a preset
         if copies:
             first = sorted(copies)[0]
             raise RuntimeError(f"{len(copies)} file(s) are copies of mods' Root files, not a preset (first: {first} from "
@@ -452,19 +457,6 @@ class Core:
         if bad:
             raise RuntimeError(f"{len(bad)} copies are not equal to the game folder's (first: {bad[0]}) - nothing was removed")
         self.say(f"adopt: {len(files)} file(s) in '{mod}' proven equal ({copied} copied now)")
-        if not recycle(files.values()):
-            raise RuntimeError("the Recycle Bin refused the game folder files - check the game folder")
-        left = [rel for rel, p in files.items() if p.exists()]
-        if left:
-            raise RuntimeError(f"{len(left)} file(s) are still in the game folder (first: {left[0]})")
-        for top in {Path(rel).parts[0] for rel in files if len(Path(rel).parts) > 1}:
-            remove_empty_dirs(self.game / top, keep_root=False)
-        stamp = time.strftime("%Y-%m-%d %H-%M-%S")
-        for name in (("GameData.json", "Backup") if reset_snapshot else ()):
-            src = self.rb_dir / name
-            if src.exists():
-                dest = self.rb_dir / f"{Path(name).stem} before Root Builder Profiles {stamp}{Path(name).suffix}"
-                os.replace(src, dest)
-                self.say(f"adopt: Root Builder's {name} set aside as '{dest.name}' (it makes a fresh one on its next build)")
+        self._recycle_from_game(files, reset_snapshot, "adopt")
         self.say(f"adopt: {len(files)} file(s) recycled from the game folder")
         return created, copied

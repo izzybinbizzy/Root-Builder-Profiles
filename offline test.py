@@ -7,7 +7,8 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 HERE = Path(__file__).parent
 SRC = HERE
-W = Path(tempfile.gettempdir()) / "Root Builder Profiles offline test"
+# The long path: a short 8.3 TEMP (GitHub's runners have one) never matches the long path a Recycle Bin record holds.
+W = Path(tempfile.gettempdir()).resolve() / "Root Builder Profiles offline test"
 if W.exists():
     shutil.rmtree(W)
 game, mo = W / "game", W / "mo2"
@@ -386,5 +387,37 @@ p._run_profile = "Profile Z"
 n0 = len(calls); p._guard(p._after_run)
 check((mods / "Root Changes - Profile Z" / "Root" / "enbcache" / "z.sc").exists() and ("tick", "Root Changes - Profile Z") not in calls[n0:],
       "files go to the profile that ran, and its mod is not ticked in the current one")
+# a build still deployed when the step runs (autobuild off): Root Builder clears inside its own run callback, so nothing is polled
+put(rbd / "BuildData.json", "{}")
+put(ow / "Root" / "enbcache" / "w.sc", "w")
+shots = []
+# the plugin imported the QTimer stand-in itself, so its singleShot is swapped on that same object, never the module name
+timer_shot = core_m.QTimer.singleShot
+core_m.QTimer.singleShot = lambda ms, fn: shots.append(ms)
+try:
+    p._run_profile = None
+    plog = pdata / "RootBuilderProfiles" / "Root Builder Profiles log.txt"
+    n_log = len(plog.read_text(encoding="utf-8").splitlines()) if plog.exists() else 0
+    p._guard(p._after_run)
+    new_log = plog.read_text(encoding="utf-8").splitlines()[n_log:] if plog.exists() else []
+finally:
+    core_m.QTimer.singleShot = timer_shot
+check(not shots and (ow / "Root" / "enbcache" / "w.sc").exists() and any("still has files deployed" in line for line in new_log),
+      "a build still deployed after the run: nothing moved, no re-check scheduled, the reason logged")
+(rbd / "BuildData.json").unlink()
+(ow / "Root" / "enbcache" / "w.sc").unlink()
+# no personal word in any text the add-on shows or ships (topics\pages.md pg.2)
+import re
+import io, tokenize
+prose_kinds = {tokenize.STRING, tokenize.COMMENT, getattr(tokenize, "FSTRING_MIDDLE", tokenize.STRING)}
+texts = []
+for n in ("__init__.py", "core.py"):   # the words only: strings, docstrings and comments, never a variable named i
+    src_text = (SRC / "rootbuilderprofiles" / n).read_text(encoding="utf-8")
+    texts += [t.string for t in tokenize.generate_tokens(io.StringIO(src_text).readline) if t.type in prose_kinds]
+texts.append((SRC / "README.md").read_text(encoding="utf-8"))
+# he / she / they / them are left out: the dialogs and log say "they" / "them" for files, never for a person
+personal = r"\b(i|me|my|we|us|our|ours|you|your|yours)\b"
+hits = [m.group(0) for t in texts for m in re.finditer(personal, t, re.I)]
+check(not hits, f"no personal word in the dialogs, log lines, docstrings or README {hits[:5]}")
 print("\nRESULT:", "ALL PASS" if not fails else f"{len(fails)} FAILED: {fails}")
 sys.exit(1 if fails else 0)
