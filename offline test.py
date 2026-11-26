@@ -387,5 +387,20 @@ p._run_profile = "Profile Z"
 n0 = len(calls); p._guard(p._after_run)
 check((mods / "Root Changes - Profile Z" / "Root" / "enbcache" / "z.sc").exists() and ("tick", "Root Changes - Profile Z") not in calls[n0:],
       "files go to the profile that ran, and its mod is not ticked in the current one")
+# a build still deployed when the step runs (autobuild off): Root Builder clears inside its own run callback, so nothing is polled
+put(rbd / "BuildData.json", "{}")
+put(ow / "Root" / "enbcache" / "w.sc", "w")
+shots = []
+core_m.QTimer = types.SimpleNamespace(singleShot=lambda ms, fn: shots.append(ms))
+p._run_profile = None
+p._guard(p._after_run)
+check(not shots and (ow / "Root" / "enbcache" / "w.sc").exists(), "a build still deployed after the run: nothing moved, no re-check scheduled")
+core_m.QTimer = types.SimpleNamespace(singleShot=lambda ms, fn: fn())
+(rbd / "BuildData.json").unlink()
+(ow / "Root" / "enbcache" / "w.sc").unlink()
+# no personal word in any text the add-on shows or ships (topics\pages.md pg.2)
+import re
+texts = [(SRC / "rootbuilderprofiles" / "__init__.py").read_text(encoding="utf-8"), (SRC / "README.md").read_text(encoding="utf-8")]
+check(not any(re.search(r"\b(you|your|yours)\b", t, re.I) for t in texts), "no 'you' / 'your' in the dialogs, settings or README")
 print("\nRESULT:", "ALL PASS" if not fails else f"{len(fails)} FAILED: {fails}")
 sys.exit(1 if fails else 0)

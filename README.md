@@ -12,7 +12,7 @@ nothing in Root Builder's code or settings; it runs after Root Builder's own Cle
   `overwrite\Root` when the add-on first starts are left where they are.
 - **A clean game folder.** On start, on a profile change and after a program closes it looks for ENB / Effects 11 / ReShade
   preset files in the game folder that no mod deploys - a preset placed by hand before Root Builder, or one dropped in later -
-  and offers to move them into a mod you name. Every copy is checked equal first; the game folder copies then go to the
+  and offers to move them into a mod named at its prompt. Every copy is checked equal first; the game folder copies then go to the
   Recycle Bin, and when Root Builder had recorded them as game files its game snapshot and backup are renamed (never deleted),
   so it records the clean folder on its next build. Answer no and that same set is not asked about again until it changes.
 - **Leftovers are never a preset.** A game-folder file that is an exact copy of a file in any mod's Root folder (ticked or
