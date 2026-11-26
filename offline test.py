@@ -397,7 +397,7 @@ plog = pdata / "RootBuilderProfiles" / "Root Builder Profiles log.txt"
 n_log = len(plog.read_text(encoding="utf-8").splitlines()) if plog.exists() else 0
 p._guard(p._after_run)
 new_log = plog.read_text(encoding="utf-8").splitlines()[n_log:] if plog.exists() else []
-check(not shots and (ow / "Root" / "enbcache" / "w.sc").exists() and any("still has files deployed" in l for l in new_log),
+check(not shots and (ow / "Root" / "enbcache" / "w.sc").exists() and any("still has files deployed" in line for line in new_log),
       "a build still deployed after the run: nothing moved, no re-check scheduled, the reason logged")
 core_m.QTimer = types.SimpleNamespace(singleShot=lambda ms, fn: fn())
 (rbd / "BuildData.json").unlink()
@@ -411,6 +411,7 @@ for n in ("__init__.py", "core.py"):   # the words only: strings, docstrings and
     src_text = (SRC / "rootbuilderprofiles" / n).read_text(encoding="utf-8")
     texts += [t.string for t in tokenize.generate_tokens(io.StringIO(src_text).readline) if t.type in prose_kinds]
 texts.append((SRC / "README.md").read_text(encoding="utf-8"))
+# he / she / they / them are left out: the dialogs and log say "they" / "them" for files, never for a person
 personal = r"\b(i|me|my|we|us|our|ours|you|your|yours)\b"
 hits = [m.group(0) for t in texts for m in re.finditer(personal, t, re.I)]
 check(not hits, f"no personal word in the dialogs, log lines, docstrings or README {hits[:5]}")
