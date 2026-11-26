@@ -39,4 +39,4 @@ jobs:
           if ($init -notmatch 'VersionInfo\((\d+), (\d+), (\d+)\)') { throw "no VersionInfo in __init__.py" }
           $v = "$($Matches[1]).$($Matches[2]).$($Matches[3])"
           if (-not ($m.Versions | Where-Object { $_.Version -eq $v })) { throw "plugindefinition.json has no entry for $v" }
-          "### Root Builder Profiles $v: offline test passed, manifest lists it" >> $env:GITHUB_STEP_SUMMARY
+          "### Root Builder Profiles ${v}: offline test passed, manifest lists it" >> $env:GITHUB_STEP_SUMMARY
