@@ -7,7 +7,8 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 HERE = Path(__file__).parent
 SRC = HERE
-W = Path(tempfile.gettempdir()) / "Root Builder Profiles offline test"
+# The long path: a short 8.3 TEMP (GitHub's runners have one) never matches the long path a Recycle Bin record holds.
+W = Path(tempfile.gettempdir()).resolve() / "Root Builder Profiles offline test"
 if W.exists():
     shutil.rmtree(W)
 game, mo = W / "game", W / "mo2"
@@ -123,10 +124,7 @@ created, copied = c.adopt(adoptable, "NAT ENB Preset - Game Root")
 pm = mods / "NAT ENB Preset - Game Root" / "Root"
 check(created and copied == 3 and (pm / "enbseries" / "w" / "cloudy.ini").read_text() == "game enbseries/w/cloudy.ini", "preset copied into its mod")
 check(not (game / "enbseries").exists() and not (game / "enbseries.ini").exists(), "game copies gone, empty folder removed")
-if os.environ.get("GITHUB_ACTIONS"):
-    print("SKIP the game copies are in the Recycle Bin: a CI runner's service account has no Recycle Bin to read (checked on a PC)")
-else:
-    check(in_bin(game / "enbseries.ini") and in_bin(game / "enbseries" / "w" / "cloudy.ini"), "the game copies are in the Recycle Bin (its $I records name them)")
+check(in_bin(game / "enbseries.ini") and in_bin(game / "enbseries" / "w" / "cloudy.ini"), "the game copies are in the Recycle Bin (its $I records name them)")
 check((game / "SkyrimSE.exe").exists() and (game / "Data" / "Skyrim.esm").exists() and (game / "d3d11.dll").exists(), "nothing else touched")
 check(not (rbdir / "GameData.json").exists() and not (rbdir / "Backup").exists() and len(list(rbdir.iterdir())) == 2, "Root Builder snapshot + backup set aside, not deleted")
 # existing mod with one different copy: game copy wins, all proven
